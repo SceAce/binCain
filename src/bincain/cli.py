@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import click
 
+from bincain.init import init_challenge
+
 
 @click.group()
 def main() -> None:
@@ -9,9 +11,12 @@ def main() -> None:
 
 
 @click.command(name="init")
-def init_cmd() -> None:
+@click.argument("target", type=click.Path(exists=True, path_type=str))
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+def init_cmd(target: str, workspace: str) -> None:
     """Normalize challenge artifacts."""
-    raise click.ClickException("binCain-init is not implemented yet")
+    result = init_challenge(target, workspace)
+    click.echo(json_dump(result))
 
 
 @click.command(name="triage")
@@ -22,3 +27,9 @@ def triage_cmd() -> None:
 
 main.add_command(init_cmd)
 main.add_command(triage_cmd)
+
+
+def json_dump(value: object) -> str:
+    import json
+
+    return json.dumps(value, indent=2, sort_keys=True)

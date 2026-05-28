@@ -3,6 +3,7 @@ from __future__ import annotations
 import click
 
 from bincain.init import init_challenge
+from bincain.triage import write_crash_report
 
 
 @click.group()
@@ -20,9 +21,21 @@ def init_cmd(target: str, workspace: str) -> None:
 
 
 @click.command(name="triage")
-def triage_cmd() -> None:
+@click.option("--binary", "binary", required=True)
+@click.option("--input", "crash_input", type=click.Path(exists=True, path_type=str), required=True)
+@click.option("--output", "output", type=click.Path(path_type=str), required=True)
+@click.option("--arch", default="unknown", show_default=True)
+@click.option("--signal", "signal_name", default=None)
+def triage_cmd(binary: str, crash_input: str, output: str, arch: str, signal_name: str | None) -> None:
     """Build a compact crash triage report."""
-    raise click.ClickException("binCain-triage is not implemented yet")
+    result = write_crash_report(
+        output=output,
+        binary=binary,
+        crash_input=crash_input,
+        arch=arch,
+        signal=signal_name,
+    )
+    click.echo(json_dump(result))
 
 
 main.add_command(init_cmd)

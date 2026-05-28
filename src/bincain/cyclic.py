@@ -18,7 +18,10 @@ def cyclic_find(value: bytes | bytearray | int, *, width: int | None = None, max
             width = 8
         if width <= 0:
             raise ValueError("width must be positive")
-        needle = value.to_bytes(width, "little", signed=False)
+        try:
+            needle = value.to_bytes(width, "little", signed=False)
+        except OverflowError:
+            return None
     else:
         needle = bytes(value)
 

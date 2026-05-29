@@ -18,6 +18,18 @@ Expected workspace layout:
 
 Use `binCain-init` during bootstrap when local challenge artifacts exist. Use `binCain-triage` to turn crashes into compact JSON before reasoning from debugger output.
 
+Copy-paste baseline commands:
+
+```bash
+binCain-init target --workspace /home/kali/workspace
+binCain-triage --binary target/chall --input crashes/id_000001 \
+  --output findings/crash_000001.json --arch amd64 --workspace /home/kali/workspace --gdb
+binCain-repro --workspace /home/kali/workspace --crash-report findings/crash_000001.json
+binCain-primitive assert-pc --workspace /home/kali/workspace --crash findings/crash_000001.json
+```
+
+If `binCain-triage --gdb` fails, preserve the generated JSON and GDB log. Write a negative Fact that cites those paths instead of retrying blindly.
+
 ## Run Profiles
 
 Use `scripts/run_target.sh --profile <name>` instead of hand-writing loader, qemu, or debugger command lines when a profile exists.

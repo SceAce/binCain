@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from bincain.artifacts import append_event, update_summary
 from bincain.cyclic import cyclic_find
 
 _CONTROL_REGISTERS = {
@@ -55,6 +56,8 @@ def write_crash_report(
     signal: str | None = None,
     registers: dict[str, str | int] | None = None,
     backtrace: list[str] | None = None,
+    workspace: Path | str | None = None,
+    crash_id: str | None = None,
 ) -> dict[str, Any]:
     report = build_crash_report(
         binary=binary,
@@ -65,8 +68,11 @@ def write_crash_report(
         backtrace=backtrace,
     )
     output_path = Path(output)
+    report["id"] = crash_id or output_path.stem
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
+    if workspace is not None:
+        _record_crash_summary(Path(workspace), report, output_path)
     return report
 
 
@@ -110,3 +116,41 @@ def _parse_int(value: str) -> int | None:
 
 def _gdb_command(binary: str, crash_input: Path) -> str:
     return f"gdb -q {json.dumps(binary)} -ex 'run < {crash_input}' -ex 'info registers' -ex 'bt' -ex 'quit'"
+
+
+def _record_crash_summary(workspace: Path, report: dict[str, Any], output: Path) -> None:
+    controlled = report.get("controlled_registers", [])
+    if controlled:
+        first = controlled[0]
+        summary_text = (
+            f"{report['id']} reaches {report.get('signal') or 'unknown signal'} in {report['binary']}; "
+            f"{first['register']}={first['value']} at cyclic offset {first['offset']}."
+        )
+    else:
+        summary_text = f"{report['id']} triaged for {report['binary']} with {report.get('signal') or 'unknown signal'}."
+    append_event(
+        workspace,
+        source="binCain-triage",
+        kind="crash_triaged",
+        summary=summary_text,
+        artifact=_workspace_relative(workspace, output),
+        related=[_workspace_relative(workspace, Path(report["crash_input"]))],
+    )
+    update_summary(
+        workspace,
+        selected_crashes=[
+            {
+                "id": report["id"],
+                "summary": summary_text,
+                "artifact": _workspace_relative(workspace, output),
+                "confidence": "high" if controlled else "medium",
+            }
+        ],
+    )
+
+
+def _workspace_relative(workspace: Path, path: Path) -> str:
+    try:
+        return str(path.relative_to(workspace))
+    except ValueError:
+        return str(path)

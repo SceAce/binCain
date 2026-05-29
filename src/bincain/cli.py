@@ -3,6 +3,7 @@ from __future__ import annotations
 import click
 
 from bincain.init import init_challenge
+from bincain.primitive import assert_leak, assert_offset, assert_pc, assert_write
 from bincain.protocol import generate_protocol_template
 from bincain.repro import generate_repro
 from bincain.triage import write_crash_report
@@ -63,10 +64,54 @@ def protocol_template_cmd(workspace: str, topology: str) -> None:
     click.echo(json_dump(result))
 
 
+@click.group(name="primitive")
+def primitive_cmd() -> None:
+    """Assert primitive proof candidates."""
+
+
+@primitive_cmd.command(name="assert-pc")
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+@click.option("--crash", "crash_report", type=click.Path(exists=True, path_type=str), required=True)
+def primitive_assert_pc_cmd(workspace: str, crash_report: str) -> None:
+    click.echo(json_dump(assert_pc(workspace=workspace, crash_report=crash_report)))
+
+
+@primitive_cmd.command(name="assert-offset")
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+@click.option("--crash", "crash_report", type=click.Path(exists=True, path_type=str), required=True)
+def primitive_assert_offset_cmd(workspace: str, crash_report: str) -> None:
+    click.echo(json_dump(assert_offset(workspace=workspace, crash_report=crash_report)))
+
+
+@primitive_cmd.command(name="assert-leak")
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+@click.option("--candidate", "candidates", multiple=True, required=True)
+@click.option("--maps", "maps_file", type=click.Path(exists=True, path_type=str), default=None)
+@click.option("--repro", "reproducer", default=None)
+def primitive_assert_leak_cmd(
+    workspace: str,
+    candidates: tuple[str, ...],
+    maps_file: str | None,
+    reproducer: str | None,
+) -> None:
+    click.echo(json_dump(assert_leak(workspace=workspace, candidates=list(candidates), maps_file=maps_file, reproducer=reproducer)))
+
+
+@primitive_cmd.command(name="assert-write")
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+@click.option("--target", default="unknown", show_default=True)
+@click.option("--repro", "reproducer", default=None)
+@click.option("--watch", default=None)
+@click.option("--verified/--unverified", default=False, show_default=True)
+def primitive_assert_write_cmd(workspace: str, target: str, reproducer: str | None, watch: str | None, verified: bool) -> None:
+    click.echo(json_dump(assert_write(workspace=workspace, target=target, reproducer=reproducer, watch=watch, verified=verified)))
+
+
 main.add_command(init_cmd)
 main.add_command(triage_cmd)
 main.add_command(repro_cmd)
 main.add_command(protocol_template_cmd)
+main.add_command(primitive_cmd)
 
 
 def json_dump(value: object) -> str:

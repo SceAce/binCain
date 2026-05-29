@@ -3,6 +3,7 @@ from __future__ import annotations
 import click
 
 from bincain.init import init_challenge
+from bincain.repro import generate_repro
 from bincain.triage import write_crash_report
 
 
@@ -38,8 +39,19 @@ def triage_cmd(binary: str, crash_input: str, output: str, arch: str, signal_nam
     click.echo(json_dump(result))
 
 
+@click.command(name="repro")
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+@click.option("--crash-report", type=click.Path(exists=True, path_type=str), required=True)
+@click.option("--profile", default="raw", show_default=True)
+def repro_cmd(workspace: str, crash_report: str, profile: str) -> None:
+    """Generate a replay script from a crash report."""
+    result = generate_repro(workspace=workspace, crash_report=crash_report, profile=profile)
+    click.echo(json_dump(result))
+
+
 main.add_command(init_cmd)
 main.add_command(triage_cmd)
+main.add_command(repro_cmd)
 
 
 def json_dump(value: object) -> str:

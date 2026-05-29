@@ -3,6 +3,7 @@ from __future__ import annotations
 import click
 
 from bincain.init import init_challenge
+from bincain.protocol import generate_protocol_template
 from bincain.repro import generate_repro
 from bincain.triage import write_crash_report
 
@@ -49,9 +50,23 @@ def repro_cmd(workspace: str, crash_report: str, profile: str) -> None:
     click.echo(json_dump(result))
 
 
+@click.command(name="protocol-template")
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+@click.option("--topology", type=click.Path(exists=True, path_type=str), required=True)
+def protocol_template_cmd(workspace: str, topology: str) -> None:
+    """Generate a base interaction template from menu topology JSON."""
+    import json
+
+    with open(topology, encoding="utf-8") as handle:
+        data = json.load(handle)
+    result = generate_protocol_template(workspace, data)
+    click.echo(json_dump(result))
+
+
 main.add_command(init_cmd)
 main.add_command(triage_cmd)
 main.add_command(repro_cmd)
+main.add_command(protocol_template_cmd)
 
 
 def json_dump(value: object) -> str:

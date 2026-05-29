@@ -11,6 +11,9 @@ dependencies = [
 binCain = "bincain.cli:main"
 binCain-init = "bincain.cli:init_cmd"
 binCain-triage = "bincain.cli:triage_cmd"
+binCain-repro = "bincain.cli:repro_cmd"
+binCain-protocol-template = "bincain.cli:protocol_template_cmd"
+binCain-primitive = "bincain.cli:primitive_cmd"
 
 [build-system]
 requires = ["setuptools>=68"]

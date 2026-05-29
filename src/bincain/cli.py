@@ -6,7 +6,7 @@ from bincain.init import init_challenge
 from bincain.primitive import assert_leak, assert_offset, assert_pc, assert_write
 from bincain.protocol import generate_protocol_template
 from bincain.repro import generate_repro
-from bincain.triage import write_crash_report
+from bincain.triage import run_gdb_triage, write_crash_report
 
 
 @click.group()
@@ -29,15 +29,41 @@ def init_cmd(target: str, workspace: str) -> None:
 @click.option("--output", "output", type=click.Path(path_type=str), required=True)
 @click.option("--arch", default="unknown", show_default=True)
 @click.option("--signal", "signal_name", default=None)
-def triage_cmd(binary: str, crash_input: str, output: str, arch: str, signal_name: str | None) -> None:
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+@click.option("--gdb/--no-gdb", "use_gdb", default=False, show_default=True)
+@click.option("--gdb-bin", default=None)
+@click.option("--timeout", default=10, show_default=True)
+def triage_cmd(
+    binary: str,
+    crash_input: str,
+    output: str,
+    arch: str,
+    signal_name: str | None,
+    workspace: str,
+    use_gdb: bool,
+    gdb_bin: str | None,
+    timeout: int,
+) -> None:
     """Build a compact crash triage report."""
-    result = write_crash_report(
-        output=output,
-        binary=binary,
-        crash_input=crash_input,
-        arch=arch,
-        signal=signal_name,
-    )
+    if use_gdb:
+        result = run_gdb_triage(
+            binary=binary,
+            crash_input=crash_input,
+            output=output,
+            workspace=workspace,
+            arch=arch,
+            gdb=gdb_bin,
+            timeout=timeout,
+        )
+    else:
+        result = write_crash_report(
+            output=output,
+            binary=binary,
+            crash_input=crash_input,
+            arch=arch,
+            signal=signal_name,
+            workspace=workspace,
+        )
     click.echo(json_dump(result))
 
 

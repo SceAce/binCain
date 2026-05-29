@@ -1,4 +1,5 @@
 import os
+import subprocess
 from pathlib import Path
 
 from bincain.run_profiles import build_run_profiles, write_run_target_wrapper
@@ -22,3 +23,21 @@ def test_write_run_target_wrapper_uses_profile_argument(tmp_path: Path):
     assert "--profile" in text
     assert "run_profiles.json" in text
     assert os.access(wrapper, os.X_OK)
+
+
+def test_run_target_wrapper_preserves_stdin_for_target(tmp_path: Path):
+    profiles_path = tmp_path / "findings" / "run_profiles.json"
+    profiles_path.parent.mkdir()
+    profiles_path.write_text(
+        '{"schema":"bincain.run_profiles.v1","default":"raw","profiles":{"raw":{"argv":["/bin/cat"],"env":{}}}}'
+    )
+    wrapper = write_run_target_wrapper(tmp_path / "scripts", profiles_path)
+
+    result = subprocess.run(
+        [str(wrapper), "--profile", "raw"],
+        input=b"stdin-survives\n",
+        capture_output=True,
+        check=True,
+    )
+
+    assert result.stdout == b"stdin-survives\n"

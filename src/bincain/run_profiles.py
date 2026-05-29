@@ -45,6 +45,17 @@ def write_run_target_wrapper(scripts_dir: Path | str, run_profiles_path: Path | 
     scripts_path.mkdir(parents=True, exist_ok=True)
     profiles_path = Path(run_profiles_path)
     wrapper = scripts_path / "run_target.sh"
+    runner = (
+        "import json, os, subprocess, sys; "
+        "profile=sys.argv[1]; profiles_path=sys.argv[2]; extra=sys.argv[3:]; "
+        "data=json.load(open(profiles_path, encoding='utf-8')); "
+        "profiles=data.get('profiles', {}); "
+        "entry=profiles.get(profile); "
+        "sys.exit(f'unknown run profile: {profile}') if entry is None else None; "
+        "argv=list(entry.get('argv', [])) + extra; "
+        "env=os.environ.copy(); env.update(entry.get('env', {})); "
+        "raise SystemExit(subprocess.call(argv, env=env))"
+    )
     script = f"""#!/usr/bin/env bash
 set -euo pipefail
 
@@ -54,25 +65,7 @@ if [[ "${{1:-}}" == "--profile" ]]; then
   shift 2
 fi
 
-python3 - "$profile" {json.dumps(str(profiles_path))} "$@" <<'PY'
-import json
-import os
-import subprocess
-import sys
-
-profile = sys.argv[1]
-profiles_path = sys.argv[2]
-extra = sys.argv[3:]
-data = json.load(open(profiles_path, encoding="utf-8"))
-profiles = data.get("profiles", {{}})
-if profile not in profiles:
-    raise SystemExit(f"unknown run profile: {{profile}}")
-entry = profiles[profile]
-argv = list(entry.get("argv", [])) + extra
-env = os.environ.copy()
-env.update(entry.get("env", {{}}))
-raise SystemExit(subprocess.call(argv, env=env))
-PY
+python3 -c {json.dumps(runner)} "$profile" {json.dumps(str(profiles_path))} "$@"
 """
     wrapper.write_text(script)
     wrapper.chmod(0o755)

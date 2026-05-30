@@ -26,3 +26,6 @@ def test_worker_dockerfile_installs_required_runtime_tools_and_scripts():
         assert script in text
     assert "/home/kali/workspace" in text
     assert "COPY worker/AGENTS.md /home/kali/AGENTS.md" in text
+    assert "COPY worker/entrypoint.sh /entrypoint.sh" in text
+    assert "RUN chmod +x /entrypoint.sh" in text
+    assert "ENTRYPOINT [\"/entrypoint.sh\"]" in text

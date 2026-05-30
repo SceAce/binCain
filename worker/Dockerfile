@@ -46,6 +46,8 @@ COPY pyproject.toml ./
 COPY src ./src
 COPY worker/AGENTS.md /home/kali/AGENTS.md
 COPY worker/templates /home/kali/templates
+COPY worker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 RUN python3 -m pip install --no-cache-dir . \
     && binCain-init --help >/dev/null \
@@ -53,7 +55,7 @@ RUN python3 -m pip install --no-cache-dir . \
     && binCain-repro --help >/dev/null \
     && binCain-primitive --help >/dev/null
 
-USER kali
 WORKDIR /home/kali/workspace
 
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["/bin/bash"]

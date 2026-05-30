@@ -1,0 +1,11 @@
+services:
+  worker:
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    image: bincain-worker:dev
+    working_dir: /home/kali/workspace
+    volumes:
+      - ./tmp/workspace:/home/kali/workspace
+    stdin_open: true
+    tty: true

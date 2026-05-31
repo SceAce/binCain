@@ -17,9 +17,10 @@ def main() -> None:
 @click.command(name="init")
 @click.argument("target", type=click.Path(exists=True, path_type=str))
 @click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
-def init_cmd(target: str, workspace: str) -> None:
+@click.option("--remote", default=None, help="Optional remote host:port for later validation.")
+def init_cmd(target: str, workspace: str, remote: str | None) -> None:
     """Normalize challenge artifacts."""
-    result = init_challenge(target, workspace)
+    result = init_challenge(target, workspace, remote=remote)
     click.echo(json_dump(result))
 
 
@@ -32,6 +33,7 @@ def init_cmd(target: str, workspace: str) -> None:
 @click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
 @click.option("--gdb/--no-gdb", "use_gdb", default=False, show_default=True)
 @click.option("--gdb-bin", default=None)
+@click.option("--profile", default=None, help="Override the debug profile from findings/run_profiles.json.")
 @click.option("--timeout", default=10, show_default=True)
 def triage_cmd(
     binary: str,
@@ -42,6 +44,7 @@ def triage_cmd(
     workspace: str,
     use_gdb: bool,
     gdb_bin: str | None,
+    profile: str | None,
     timeout: int,
 ) -> None:
     """Build a compact crash triage report."""
@@ -53,6 +56,7 @@ def triage_cmd(
             workspace=workspace,
             arch=arch,
             gdb=gdb_bin,
+            profile=profile,
             timeout=timeout,
         )
     else:
@@ -70,8 +74,8 @@ def triage_cmd(
 @click.command(name="repro")
 @click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
 @click.option("--crash-report", type=click.Path(exists=True, path_type=str), required=True)
-@click.option("--profile", default="raw", show_default=True)
-def repro_cmd(workspace: str, crash_report: str, profile: str) -> None:
+@click.option("--profile", default=None, help="Override the default run profile from findings/run_profiles.json.")
+def repro_cmd(workspace: str, crash_report: str, profile: str | None) -> None:
     """Generate a replay script from a crash report."""
     result = generate_repro(workspace=workspace, crash_report=crash_report, profile=profile)
     click.echo(json_dump(result))

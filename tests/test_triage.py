@@ -102,6 +102,8 @@ def test_run_gdb_triage_writes_success_artifacts_and_summary(tmp_path: Path):
     assert Path(report["gdb_script"]).exists()
     assert Path(report["gdb_log"]).exists()
     assert "crash_triaged" in (workspace / "findings" / "events.jsonl").read_text()
+    assert report["debug_profile"] == "debug"
+    assert report["gdb_command"].startswith("gdb -q")
 
 
 def test_run_gdb_triage_writes_failure_artifact_and_negative_summary(tmp_path: Path):
@@ -128,3 +130,136 @@ def test_run_gdb_triage_writes_failure_artifact_and_negative_summary(tmp_path: P
     assert report["status"] == "failed"
     assert "gdb failed" in Path(report["gdb_log"]).read_text()
     assert "crash_triage_failed" in (workspace / "findings" / "events.jsonl").read_text()
+    assert report["attempted_command"] == report["gdb_command"]
+
+
+def test_run_gdb_triage_uses_qemu_debug_profile_from_workspace_run_profiles(tmp_path: Path):
+    workspace = tmp_path / "workspace"
+    binary = workspace / "target" / "chall"
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"\x7fELF")
+    crash_input = workspace / "crashes" / "id_000001"
+    crash_input.parent.mkdir()
+    crash_input.write_bytes(cyclic(128))
+    findings = workspace / "findings"
+    findings.mkdir()
+    (findings / "run_profiles.json").write_text(
+        json.dumps(
+            {
+                "schema": "bincain.run_profiles.v1",
+                "default": "qemu",
+                "profiles": {
+                    "qemu": {"argv": ["qemu-mipsel", "-L", "/tmp/sysroot", str(binary)], "env": {}, "stdin": True},
+                    "qemu-debug": {"argv": ["qemu-mipsel", "-g", "1234", "-L", "/tmp/sysroot", str(binary)], "env": {}, "stdin": True},
+                },
+            }
+        )
+    )
+
+    def fake_runner(command, timeout):
+        assert command == ["gdb-multiarch", "-q", "-x", str(workspace / "findings" / "crash_000001.gdb")]
+        return (
+            0,
+            "Program received signal SIGSEGV\npc             0x6161616b\nsp             0x7fff0000\n#0  main\n",
+            "",
+        )
+
+    report = run_gdb_triage(
+        binary=binary,
+        crash_input=crash_input,
+        output=workspace / "findings" / "crash_000001.json",
+        workspace=workspace,
+        arch="mipsel",
+        command_runner=fake_runner,
+        launch_inferior=False,
+    )
+
+    script_text = Path(report["gdb_script"]).read_text()
+    assert "target remote :1234" in script_text
+    assert "set architecture mips:isa32" in script_text
+    assert report["debug_profile"] == "qemu-debug"
+    assert report["gdb"] == "gdb-multiarch"
+    assert report["gdb_command"] == "gdb-multiarch -q -x " + str(workspace / "findings" / "crash_000001.gdb")
+
+
+def test_run_gdb_triage_upgrades_qemu_profile_to_remote_debug_plan(tmp_path: Path):
+    workspace = tmp_path / "workspace"
+    binary = workspace / "target" / "chall"
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"\x7fELF")
+    crash_input = workspace / "crashes" / "id_000001"
+    crash_input.parent.mkdir()
+    crash_input.write_bytes(cyclic(32))
+    findings = workspace / "findings"
+    findings.mkdir()
+    (findings / "run_profiles.json").write_text(
+        json.dumps(
+            {
+                "schema": "bincain.run_profiles.v1",
+                "default": "qemu",
+                "profiles": {
+                    "qemu": {"argv": ["qemu-mipsel", "-L", "/tmp/sysroot", str(binary)], "env": {}, "stdin": True},
+                },
+            }
+        )
+    )
+
+    def fake_runner(command, timeout):
+        assert command[0] == "gdb-multiarch"
+        return (1, "", "gdb could not connect")
+
+    report = run_gdb_triage(
+        binary=binary,
+        crash_input=crash_input,
+        output=workspace / "findings" / "crash_000001.json",
+        workspace=workspace,
+        arch="mipsel",
+        command_runner=fake_runner,
+        launch_inferior=False,
+    )
+
+    script_text = Path(report["gdb_script"]).read_text()
+    assert "target remote :1234" in script_text
+    assert report["debug_profile"] == "qemu"
+    assert report["debug_plan"]["mode"] == "remote"
+
+
+def test_run_gdb_triage_prefers_explicit_profile_override(tmp_path: Path):
+    workspace = tmp_path / "workspace"
+    binary = workspace / "target" / "chall"
+    binary.parent.mkdir(parents=True)
+    binary.write_bytes(b"\x7fELF")
+    crash_input = workspace / "crashes" / "id_000001"
+    crash_input.parent.mkdir()
+    crash_input.write_bytes(cyclic(32))
+    findings = workspace / "findings"
+    findings.mkdir()
+    (findings / "run_profiles.json").write_text(
+        json.dumps(
+            {
+                "schema": "bincain.run_profiles.v1",
+                "default": "raw",
+                "profiles": {
+                    "debug": {"argv": ["gdb", "-q", "--args", str(binary)], "env": {}, "stdin": True},
+                    "qemu-debug": {"argv": ["qemu-mipsel", "-g", "1234", str(binary)], "env": {}, "stdin": True},
+                },
+            }
+        )
+    )
+
+    def fake_runner(command, timeout):
+        assert command[0] == "gdb-multiarch"
+        return (1, "", "no crash")
+
+    report = run_gdb_triage(
+        binary=binary,
+        crash_input=crash_input,
+        output=workspace / "findings" / "crash_000001.json",
+        workspace=workspace,
+        arch="mipsel",
+        profile="qemu-debug",
+        command_runner=fake_runner,
+        launch_inferior=False,
+    )
+
+    assert report["debug_profile"] == "qemu-debug"

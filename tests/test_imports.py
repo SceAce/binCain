@@ -17,6 +17,8 @@ def test_cli_lists_operational_hardening_commands():
     assert "repro" in result.output
     assert "protocol-template" in result.output
     assert "primitive" in result.output
+    assert "loop" in result.output
+    assert "asset" in result.output
 
 
 def test_pyproject_exposes_operational_console_scripts():
@@ -27,3 +29,5 @@ def test_pyproject_exposes_operational_console_scripts():
     assert scripts["binCain-repro"] == "bincain.cli:repro_cmd"
     assert scripts["binCain-primitive"] == "bincain.cli:primitive_cmd"
     assert scripts["binCain-protocol-template"] == "bincain.cli:protocol_template_cmd"
+    assert scripts["binCain-loop"] == "bincain.cli:loop_cmd"
+    assert scripts["binCain-asset"] == "bincain.cli:asset_cmd"

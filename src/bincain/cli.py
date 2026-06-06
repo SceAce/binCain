@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import click
 
+from bincain.asset import ingest_seed
 from bincain.init import init_challenge
+from bincain.iot_loop import run_iot_loop
 from bincain.primitive import assert_leak, assert_offset, assert_pc, assert_write
 from bincain.protocol import generate_protocol_template
 from bincain.report import write_exploit_chain_report
@@ -152,12 +154,47 @@ def report_cmd(workspace: str, crash_report: str, proof_report: str, output: str
     click.echo(result)
 
 
+@click.command(name="loop")
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+@click.option("--rounds", default=3, show_default=True)
+@click.option("--ai-provider", type=click.Choice(["mock", "agent"]), default="mock", show_default=True)
+@click.option("--planner", default="codex", show_default=True)
+@click.option("--executor", default="codex", show_default=True)
+@click.option("--verifier", default="claude", show_default=True)
+def loop_cmd(workspace: str, rounds: int, ai_provider: str, planner: str, executor: str, verifier: str) -> None:
+    """Run the autonomous IoT graph loop."""
+    result = run_iot_loop(
+        workspace=workspace,
+        rounds=rounds,
+        ai_provider=ai_provider,
+        planner=planner,
+        executor=executor,
+        verifier=verifier,
+    )
+    click.echo(json_dump(result))
+
+
+@click.group(name="asset")
+def asset_cmd() -> None:
+    """Manage IoT asset seeds."""
+
+
+@asset_cmd.command(name="ingest")
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+@click.option("--seed", type=click.Path(exists=True, path_type=str), required=True)
+def asset_ingest_cmd(workspace: str, seed: str) -> None:
+    """Ingest an IoT asset seed JSON file."""
+    click.echo(json_dump(ingest_seed(workspace=workspace, seed=seed)))
+
+
 main.add_command(init_cmd)
 main.add_command(triage_cmd)
 main.add_command(repro_cmd)
 main.add_command(protocol_template_cmd)
 main.add_command(primitive_cmd)
 main.add_command(report_cmd)
+main.add_command(loop_cmd)
+main.add_command(asset_cmd)
 
 
 def json_dump(value: object) -> str:

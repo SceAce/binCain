@@ -19,16 +19,34 @@ def test_render_prompt_includes_graph_and_tool_registry():
     assert "bash" in prompt
 
 
+def test_mock_provider_reads_round_from_rendered_prompt():
+    prompt = render_prompt(
+        "planner",
+        {
+            "round": 3,
+            "summary": {"iot_graph": {"intent_count": 2}},
+            "graph": {"facts": [], "intents": [], "hints": []},
+            "tool_registry": {"tools": [{"id": "bash"}]},
+        },
+    )
+
+    plan = MockAIProvider().complete(role="planner", prompt=prompt)
+
+    assert plan["chosen_intent"].endswith("round 3")
+
+
 def test_mock_provider_returns_structured_outputs():
     provider = MockAIProvider()
 
-    plan = provider.complete(role="planner", prompt="round 1")
-    execution = provider.complete(role="executor", prompt="run")
-    verification = provider.complete(role="verifier", prompt="verify")
+    plan = provider.complete(role="planner", prompt='Context JSON:\n{"round": 2}')
+    execution = provider.complete(role="executor", prompt='Context JSON:\n{"round": 2}')
+    verification = provider.complete(role="verifier", prompt='Context JSON:\n{"round": 2}')
 
     assert plan["tool_request"]["tool_id"] == "bash"
-    assert execution["artifact"].startswith("findings/")
+    assert plan["chosen_intent"].endswith("round 2")
+    assert execution["artifact"] == "findings/mock_executor_round_2.json"
     assert verification["facts"]
+    assert "round 2" in verification["facts"][0]["description"]
 
 
 def test_agent_provider_requires_authenticated_backend():

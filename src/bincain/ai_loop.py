@@ -20,40 +20,41 @@ def render_prompt(role: str, context: dict[str, Any]) -> str:
 class MockAIProvider:
     def complete(self, *, role: str, prompt: str) -> dict[str, Any]:
         _validate_role(role)
+        round_number = _extract_round(prompt)
         if role == "planner":
             return {
-                "chosen_intent": "Enumerate target entrypoints",
-                "reason": "The first useful step is to discover observable files and services from the seed.",
+                "chosen_intent": f"Enumerate target entrypoints for round {round_number}",
+                "reason": f"Round {round_number} should use the current graph state to produce fresh evidence.",
                 "tool_request": {
                     "tool_id": "bash",
-                    "arguments": {"command": "find target -maxdepth 2 -type f"},
-                    "expected_artifact": "findings/mock_executor.json",
+                    "arguments": {"command": f"find target -maxdepth {round_number + 1} -type f"},
+                    "expected_artifact": f"findings/mock_executor_round_{round_number}.json",
                     "risk": "low",
                     "long_running": False,
                 },
-                "expected_evidence": ["findings/mock_executor.json"],
-                "new_hypotheses": ["Validate discovered entrypoints"],
+                "expected_evidence": [f"findings/mock_executor_round_{round_number}.json"],
+                "new_hypotheses": [f"Validate discovered entrypoints from round {round_number}"],
             }
         if role == "executor":
             return {
                 "status": "completed",
-                "artifact": "findings/mock_executor.json",
-                "summary": "Mock executor observed a target entrypoint candidate.",
+                "artifact": f"findings/mock_executor_round_{round_number}.json",
+                "summary": f"Mock executor observed a target entrypoint candidate in round {round_number}.",
                 "failure_reason": None,
-                "observations": ["target entrypoint candidate exists"],
+                "observations": [f"target entrypoint candidate exists in round {round_number}"],
             }
         return {
             "facts": [
                 {
-                    "description": "Mock executor completed one evidence-producing action",
-                    "evidence": ["findings/mock_executor.json"],
+                    "description": f"Mock executor completed one evidence-producing action in round {round_number}",
+                    "evidence": [f"findings/mock_executor_round_{round_number}.json"],
                     "confidence": "medium",
                 }
             ],
             "rejected": [],
-            "pending": [],
-            "new_hypotheses": [{"description": "Validate target entrypoint candidate", "source": "verifier"}],
-            "value": {"level": "service exposure", "reason": "A reachable entrypoint candidate is useful follow-up evidence."},
+            "pending": [{"description": f"Continue observing target state after round {round_number}", "source": "verifier"}],
+            "new_hypotheses": [{"description": f"Validate target entrypoint candidate from round {round_number}", "source": "verifier"}],
+            "value": {"level": "service exposure", "reason": f"Round {round_number} produced reachable-entrypoint style evidence."},
         }
 
 
@@ -96,3 +97,15 @@ def _command_for_backend(backend: str, prompt: str) -> list[str]:
 def _validate_role(role: str) -> None:
     if role not in VALID_ROLES:
         raise ValueError(f"invalid AI loop role: {role}")
+
+
+def _extract_round(prompt: str) -> int:
+    marker = "Context JSON:"
+    if marker not in prompt:
+        return 1
+    json_text = prompt.split(marker, 1)[1].strip()
+    try:
+        context, _ = json.JSONDecoder().raw_decode(json_text)
+        return int(context.get("round") or 1)
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return 1

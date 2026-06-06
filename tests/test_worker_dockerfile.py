@@ -14,8 +14,6 @@ def test_worker_dockerfile_installs_expected_pwn_runtime_tools():
         "qemu-user-static",
         "patchelf",
         "afl++",
-        "honggfuzz",
-        "rizin",
         "radare2",
         "ruby",
     ]:

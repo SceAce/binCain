@@ -43,6 +43,7 @@ def run_iot_loop(
         prompts_rendered += 1
         execution = provider.complete(role="executor", prompt=executor_prompt)
         artifact = _write_execution_artifact(workspace_path, round_number, plan, execution)
+        _write_long_task_observation(workspace_path, round_number, execution)
 
         verifier_prompt = render_prompt(
             "verifier",
@@ -123,6 +124,41 @@ def _apply_verification(workspace: Path, verification: dict[str, Any], artifact:
             source=str(item.get("source", "verifier")),
             evidence=[artifact],
         )
+    _record_verification(workspace, verification, artifact)
+    for item in verification.get("pending", []):
+        add_hypothesis(
+            workspace,
+            description=str(item.get("description", "Continue pending IoT verification")),
+            source=str(item.get("source", "verifier")),
+            evidence=[artifact],
+        )
+
+
+def _record_verification(workspace: Path, verification: dict[str, Any], artifact: str) -> None:
+    path = workspace / "findings" / "verifications.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    items = data.setdefault("items", [])
+    items.append(
+        {
+            "id": f"verification_{len(items) + 1:06d}",
+            "type": "verification",
+            "artifact": artifact,
+            "facts": verification.get("facts", []),
+            "rejected": verification.get("rejected", []),
+            "pending": verification.get("pending", []),
+            "new_hypotheses": verification.get("new_hypotheses", []),
+            "value": verification.get("value", {}),
+        }
+    )
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def _write_long_task_observation(workspace: Path, round_number: int, execution: dict[str, Any]) -> None:
+    path = workspace / "findings" / "long_tasks.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["last_observed_round"] = round_number
+    data["last_executor_status"] = execution.get("status")
+    path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
 def _refresh_round_summary(workspace: Path, round_number: int, prompts_rendered: int) -> None:

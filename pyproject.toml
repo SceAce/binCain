@@ -15,8 +15,8 @@ binCain-report = "bincain.cli:report_cmd"
 binCain-repro = "bincain.cli:repro_cmd"
 binCain-primitive = "bincain.cli:primitive_cmd"
 binCain-protocol-template = "bincain.cli:protocol_template_cmd"
-binCain-loop = "bincain.cli:loop_cmd"
-binCain-asset = "bincain.cli:asset_cmd"
+binCain-loop = "bincain.iot_cli:loop_cmd"
+binCain-asset = "bincain.iot_cli:asset_cmd"
 
 [build-system]
 requires = ["setuptools>=68"]

@@ -16,7 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gdb \
     gdb-multiarch \
     git \
-    honggfuzz \
     jq \
     ltrace \
     make \
@@ -28,7 +27,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     qemu-user-static \
     radare2 \
     ripgrep \
-    rizin \
     ruby \
     socat \
     strace \

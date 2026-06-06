@@ -29,5 +29,5 @@ def test_pyproject_exposes_operational_console_scripts():
     assert scripts["binCain-repro"] == "bincain.cli:repro_cmd"
     assert scripts["binCain-primitive"] == "bincain.cli:primitive_cmd"
     assert scripts["binCain-protocol-template"] == "bincain.cli:protocol_template_cmd"
-    assert scripts["binCain-loop"] == "bincain.cli:loop_cmd"
-    assert scripts["binCain-asset"] == "bincain.cli:asset_cmd"
+    assert scripts["binCain-loop"] == "bincain.iot_cli:loop_cmd"
+    assert scripts["binCain-asset"] == "bincain.iot_cli:asset_cmd"

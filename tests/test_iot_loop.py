@@ -15,12 +15,17 @@ def test_run_iot_loop_advances_three_rounds(tmp_path: Path):
     summary = json.loads((workspace / "findings" / "summary_latest.json").read_text())
     hypotheses = json.loads((workspace / "findings" / "hypotheses.json").read_text())
     verifications = json.loads((workspace / "findings" / "verifications.json").read_text())
+    long_tasks = json.loads((workspace / "findings" / "long_tasks.json").read_text())
 
     assert result["rounds_completed"] == 3
+    assert result["last_plan"]["chosen_intent"].endswith("round 3")
     assert summary["iot_graph"]["round"] == 3
     assert len(events) >= 3
     assert len(hypotheses["items"]) >= 1
     assert len(verifications["items"]) >= 1
+    assert any(item.get("type") == "verification" for item in verifications["items"])
+    assert verifications["items"][-1]["value"]["level"] == "service exposure"
+    assert long_tasks["last_observed_round"] == 3
 
 
 def test_loop_command_runs_mock_provider(tmp_path: Path):

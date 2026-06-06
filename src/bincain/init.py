@@ -53,12 +53,15 @@ def init_challenge(
     run_profiles_path.write_text(json.dumps(run_profiles, indent=2, sort_keys=True) + "\n")
     connection_profiles_path.write_text(json.dumps(connection_profiles, indent=2, sort_keys=True) + "\n")
     run_target = write_run_target_wrapper(scripts_dir, run_profiles_path)
+    runtime_probe = _runtime_probe(primary_binary, command_runner or _run_command)
+    target_measurements["analysis_posture"] = _analysis_posture(target_measurements, runtime_probe)
 
     result: dict[str, Any] = {
         "target": str(target_path),
         "workspace": str(workspace_path),
         "binaries": binaries,
         "target_measurements": target_measurements,
+        "runtime_probe": runtime_probe,
         "libc_candidates": [str(path) for path in libc_paths],
         "ld_candidates": [str(path) for path in ld_paths],
         "run_wrappers": run_wrappers,
@@ -77,7 +80,12 @@ def init_challenge(
     )
     summary = update_summary(
         workspace_path,
-        target={"path": str(target_path), "binaries": binaries, "measurements": target_measurements},
+        target={
+            "path": str(target_path),
+            "binaries": binaries,
+            "measurements": target_measurements,
+            "runtime_probe": runtime_probe,
+        },
         run_profiles=run_profiles,
         connection_profiles=connection_profiles,
     )
@@ -150,6 +158,46 @@ def _measure_target(target: Path, binaries: list[dict[str, Any]]) -> dict[str, A
         "binary_count": len(binaries),
         "entry_summaries": entry_summaries,
     }
+
+
+def _runtime_probe(binary: Path | None, command_runner: CommandRunner) -> dict[str, Any]:
+    if binary is None:
+        return {"status": "not_attempted", "reason": "no binary candidate"}
+    returncode, stdout, stderr = command_runner(["timeout", "2", str(binary)])
+    status = "completed" if returncode == 0 else "failed"
+    if returncode == 124:
+        status = "timed_out"
+    return {
+        "binary": str(binary),
+        "command": ["timeout", "2", str(binary)],
+        "status": status,
+        "returncode": returncode,
+        "stdout_preview": _preview(stdout),
+        "stderr_preview": _preview(stderr),
+    }
+
+
+def _analysis_posture(measurements: dict[str, Any], runtime_probe: dict[str, Any]) -> dict[str, str]:
+    size_total = int(measurements.get("size_total") or 0)
+    binary_count = int(measurements.get("binary_count") or 0)
+    if size_total <= 256 * 1024 and binary_count <= 2:
+        return {
+            "name": "static-first",
+            "reason": "small target; inspect entry path first and use the probe output as a quick behavior check",
+        }
+    if runtime_probe.get("status") in {"completed", "timed_out"} and size_total <= 2 * 1024 * 1024:
+        return {
+            "name": "hybrid-first",
+            "reason": "medium target with runnable behavior; alternate entry inspection with targeted runtime checks",
+        }
+    return {
+        "name": "fuzz-first",
+        "reason": "large or unclear target; collect behavioral evidence before local reverse engineering",
+    }
+
+
+def _preview(text: str, limit: int = 4096) -> str:
+    return text[:limit]
 
 
 def _empty_run_profiles() -> dict[str, Any]:

@@ -47,6 +47,32 @@ def test_init_challenge_records_size_and_entry_summary(tmp_path: Path):
     assert result["target_measurements"]["binary_count"] == 1
 
 
+def test_init_challenge_records_runtime_probe_and_analysis_posture(tmp_path: Path):
+    target = tmp_path / "target"
+    target.mkdir()
+    binary = target / "chall"
+    binary.write_bytes(b"\x7fELF" + b"\x02\x01\x01" + b"\x00" * 128)
+    binary.chmod(0o755)
+    commands: list[list[str]] = []
+
+    def runner(command: list[str]) -> tuple[int, str, str]:
+        commands.append(command)
+        return 0, "menu: 1) add\n", ""
+
+    workspace = tmp_path / "workspace"
+    result = init_challenge(target, workspace, command_runner=runner)
+
+    assert commands == [["timeout", "2", str(binary)]]
+    assert result["runtime_probe"]["status"] == "completed"
+    assert result["runtime_probe"]["stdout_preview"] == "menu: 1) add\n"
+    assert result["target_measurements"]["analysis_posture"]["name"] == "static-first"
+
+    saved = json.loads((workspace / "findings" / "init.json").read_text())
+    summary = json.loads((workspace / "findings" / "summary_latest.json").read_text())
+    assert saved["runtime_probe"]["binary"] == str(binary)
+    assert summary["target"]["runtime_probe"]["status"] == "completed"
+
+
 def test_init_challenge_uses_existing_loader_and_libc_for_patched_copy(tmp_path: Path):
     target = tmp_path / "target"
     target.mkdir()

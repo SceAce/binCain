@@ -77,6 +77,8 @@ RUN python3 -m pip install --no-cache-dir . \
     && binCain-repro --help >/dev/null \
     && binCain-primitive --help >/dev/null \
     && binCain-protocol-template --help >/dev/null \
+    && binCain-loop --help >/dev/null \
+    && binCain-asset --help >/dev/null \
     && cd "$WORKSPACE" && git init
 
 WORKDIR /home/kali/workspace

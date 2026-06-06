@@ -16,6 +16,7 @@ def test_worker_dockerfile_installs_expected_pwn_runtime_tools():
         "afl++",
         "radare2",
         "ruby",
+        "ruby-dev",
     ]:
         assert package in text
     for python_package in [
@@ -39,3 +40,10 @@ def test_worker_dockerfile_installs_expected_pwn_runtime_tools():
     assert "COPY worker/AGENTS.md /home/kali/workspace/CLAUDE.md" in text
     assert "git init" in text
     assert "ENTRYPOINT [\"/entrypoint.sh\"]" in text
+
+
+def test_worker_entrypoint_preserves_command_argument_boundaries():
+    text = Path("worker/entrypoint.sh").read_text()
+
+    assert "runuser -u kali -- \"$@\"" in text
+    assert "cmd=\"$*\"" not in text

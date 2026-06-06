@@ -2,17 +2,17 @@ from __future__ import annotations
 
 import json
 import subprocess
-from pathlib import Path
+from importlib import resources
 from typing import Any
 
 
-PROMPT_DIR = Path(__file__).resolve().parents[2] / "integration" / "bincain" / "prompts" / "iot_loop"
+PROMPT_PACKAGE = "bincain.prompts.iot_loop"
 VALID_ROLES = {"planner", "executor", "verifier"}
 
 
 def render_prompt(role: str, context: dict[str, Any]) -> str:
     _validate_role(role)
-    template = (PROMPT_DIR / f"{role}.md").read_text(encoding="utf-8")
+    template = resources.files(PROMPT_PACKAGE).joinpath(f"{role}.md").read_text(encoding="utf-8")
     context_json = json.dumps(context, indent=2, sort_keys=True, ensure_ascii=False)
     return template.replace("{context_json}", context_json)
 

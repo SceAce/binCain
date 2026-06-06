@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     radare2 \
     ripgrep \
     ruby \
+    ruby-dev \
     socat \
     strace \
     tmux \

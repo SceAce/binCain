@@ -15,6 +15,11 @@ def test_worker_dockerfile_installs_expected_pwn_runtime_tools():
         "patchelf",
         "afl++",
         "radare2",
+        "binwalk",
+        "squashfs-tools",
+        "u-boot-tools",
+        "device-tree-compiler",
+        "cpio",
         "ruby",
         "ruby-dev",
     ]:

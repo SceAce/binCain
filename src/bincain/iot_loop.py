@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from bincain.ai_loop import AgentProvider, MockAIProvider, render_prompt
+from bincain.ai_loop import AgentProvider, MockAIProvider, load_ai_config, render_prompt
 from bincain.artifacts import append_event, read_latest_summary, update_summary
 from bincain.iot_graph import add_fact, add_hypothesis, ensure_iot_graph, graph_summary
 from bincain.tool_registry import ensure_tool_registry
@@ -18,9 +18,27 @@ def run_iot_loop(
     planner: str = "codex",
     executor: str = "codex",
     verifier: str = "claude",
+    allow_real_ai: bool = False,
+    ai_config: Path | str | None = None,
+    planner_backend: str | None = None,
+    executor_backend: str | None = None,
+    verifier_backend: str | None = None,
+    ai_timeout: int | float | None = None,
 ) -> dict[str, Any]:
     workspace_path = Path(workspace)
-    provider = _provider(ai_provider, planner=planner, executor=executor, verifier=verifier)
+    planner_override = planner_backend if planner_backend is not None else (planner if ai_config is None else None)
+    executor_override = executor_backend if executor_backend is not None else (executor if ai_config is None else None)
+    verifier_override = verifier_backend if verifier_backend is not None else (verifier if ai_config is None else None)
+    provider = _provider(
+        ai_provider,
+        planner=planner_override,
+        executor=executor_override,
+        verifier=verifier_override,
+        allow_real_ai=allow_real_ai,
+        ai_config=ai_config,
+        ai_timeout=ai_timeout,
+        cwd=workspace_path,
+    )
     prompts_rendered = 0
     last_plan: dict[str, Any] | None = None
     last_execution: dict[str, Any] | None = None
@@ -74,11 +92,41 @@ def run_iot_loop(
     }
 
 
-def _provider(ai_provider: str, *, planner: str, executor: str, verifier: str) -> MockAIProvider | AgentProvider:
+def _provider(
+    ai_provider: str,
+    *,
+    planner: str | None,
+    executor: str | None,
+    verifier: str | None,
+    allow_real_ai: bool,
+    ai_config: Path | str | None,
+    ai_timeout: int | float | None,
+    cwd: Path,
+) -> MockAIProvider | AgentProvider:
     if ai_provider == "mock":
         return MockAIProvider()
     if ai_provider == "agent":
-        return AgentProvider(planner=planner, executor=executor, verifier=verifier, authenticated=False)
+        env_by_role: dict[str, dict[str, str]] = {}
+        if ai_config is not None:
+            config = load_ai_config(ai_config)
+            resolved = config.resolve_backends(
+                planner_backend=planner,
+                executor_backend=executor,
+                verifier_backend=verifier,
+            )
+            planner = resolved["planner"].backend_type
+            executor = resolved["executor"].backend_type
+            verifier = resolved["verifier"].backend_type
+            env_by_role = {role: backend.env for role, backend in resolved.items()}
+        return AgentProvider(
+            planner=planner or "codex",
+            executor=executor or "codex",
+            verifier=verifier or "claude",
+            allow_real_ai=allow_real_ai,
+            timeout=ai_timeout,
+            cwd=cwd,
+            env_by_role=env_by_role,
+        )
     raise ValueError(f"unsupported AI provider: {ai_provider}")
 
 

@@ -8,8 +8,11 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update && apt-get install -y --no-install-recommends \
     afl++ \
     binutils \
+    binwalk \
     ca-certificates \
+    cpio \
     curl \
+    device-tree-compiler \
     file \
     g++ \
     gcc \
@@ -30,8 +33,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ruby \
     ruby-dev \
     socat \
+    squashfs-tools \
     strace \
     tmux \
+    u-boot-tools \
     wget \
     xz-utils \
     yq \

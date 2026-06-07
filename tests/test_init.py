@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from bincain.init import init_challenge
+from bincain.init import init_challenge, patch_binary_with_loader
 
 
 def _fake_elf(*, elf_class: int = 2, endian: int = 1, machine: int = 0x3E) -> bytes:
@@ -84,3 +84,85 @@ def test_init_generates_qemu_profile_and_remote_connection_for_cross_arch_target
     assert run_profiles["profiles"]["qemu"]["argv"][1:3] == ["-L", str(target.resolve())]
     assert connection_profiles["profiles"]["remote"]["host"] == "ctf.example"
     assert connection_profiles["profiles"]["remote"]["port"] == 31337
+
+
+def test_init_challenge_records_size_entry_summary_runtime_probe_and_analysis_posture(tmp_path: Path):
+    target = tmp_path / "target"
+    target.mkdir()
+    binary = target / "chall"
+    binary.write_bytes(_fake_elf() + b"\x00" * 128)
+    binary.chmod(0o755)
+    commands: list[list[str]] = []
+
+    def runner(command: list[str]) -> tuple[int, str, str]:
+        commands.append(command)
+        return 0, "menu: 1) add\n", ""
+
+    workspace = tmp_path / "workspace"
+    result = init_challenge(target, workspace, command_runner=runner)
+
+    item = result["binaries"][0]
+    assert item["size"] == binary.stat().st_size
+    assert item["entry"]
+    assert result["target_measurements"]["size_total"] == binary.stat().st_size
+    assert result["target_measurements"]["binary_count"] == 1
+    assert commands == [["timeout", "2", str(binary)]]
+    assert result["runtime_probe"]["status"] == "completed"
+    assert result["runtime_probe"]["stdout_preview"] == "menu: 1) add\n"
+    assert result["target_measurements"]["analysis_posture"]["name"] == "static-first"
+
+    saved = json.loads((workspace / "findings" / "init.json").read_text())
+    summary = json.loads((workspace / "findings" / "summary_latest.json").read_text())
+    assert saved["runtime_probe"]["binary"] == str(binary)
+    assert summary["target"]["runtime_probe"]["status"] == "completed"
+
+
+def test_init_challenge_uses_existing_loader_and_libc_for_patched_copy(tmp_path: Path):
+    target = tmp_path / "target"
+    target.mkdir()
+    binary = target / "chall"
+    binary.write_bytes(_fake_elf())
+    binary.chmod(0o755)
+    libc = target / "libc.so.6"
+    libc.write_bytes(b"fake libc")
+    loader = target / "ld-linux-x86-64.so.2"
+    loader.write_bytes(b"fake loader")
+
+    workspace = tmp_path / "workspace"
+    result = init_challenge(
+        target,
+        workspace,
+        command_runner=lambda command: (0, "", ""),
+        tool_lookup=lambda name: f"/usr/bin/{name}",
+    )
+
+    patched = workspace / "target" / "chall.patched"
+    assert patched.exists()
+    assert result["patching"]["attempted"] is True
+    assert result["patching"]["status"] == "patched"
+    assert result["patching"]["artifacts"][0]["output"] == str(patched)
+    assert "--libc" in result["patching"]["artifacts"][0]["pwninit_command"]
+    wrapper = Path(result["run_wrappers"][0]["path"])
+    assert json.dumps(str(patched)) in wrapper.read_text()
+
+
+def test_patch_binary_with_loader_records_patchelf_failure(tmp_path: Path):
+    binary = tmp_path / "chall"
+    binary.write_bytes(b"\x7fELF" + b"\x00" * 32)
+    binary.chmod(0o755)
+    libc = tmp_path / "libc.so.6"
+    libc.write_bytes(b"fake libc")
+    loader = tmp_path / "ld-linux.so"
+    loader.write_bytes(b"fake loader")
+
+    result = patch_binary_with_loader(
+        binary=binary,
+        output=tmp_path / "chall.patched",
+        libc=libc,
+        loader=loader,
+        command_runner=lambda command: (1, "", "bad interpreter"),
+    )
+
+    assert result["status"] == "failed"
+    assert result["tool"] == "patchelf"
+    assert "bad interpreter" in result["stderr"]

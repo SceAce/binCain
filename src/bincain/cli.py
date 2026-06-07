@@ -3,8 +3,10 @@ from __future__ import annotations
 import click
 
 from bincain.init import init_challenge
+from bincain.iot_cli import asset_cmd, loop_cmd
 from bincain.primitive import assert_leak, assert_offset, assert_pc, assert_write
 from bincain.protocol import generate_protocol_template
+from bincain.report import write_exploit_chain_report
 from bincain.repro import generate_repro
 from bincain.triage import run_gdb_triage, write_crash_report
 
@@ -32,7 +34,7 @@ def init_cmd(target: str, workspace: str, remote: str | None) -> None:
 @click.option("--signal", "signal_name", default=None)
 @click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
 @click.option("--gdb/--no-gdb", "use_gdb", default=False, show_default=True)
-@click.option("--gdb-bin", default=None)
+@click.option("--gdb-bin", default=None, help="Debugger executable override.")
 @click.option("--profile", default=None, help="Override the debug profile from findings/run_profiles.json.")
 @click.option("--timeout", default=10, show_default=True)
 def triage_cmd(
@@ -137,11 +139,32 @@ def primitive_assert_write_cmd(workspace: str, target: str, reproducer: str | No
     click.echo(json_dump(assert_write(workspace=workspace, target=target, reproducer=reproducer, watch=watch, verified=verified)))
 
 
+@click.command(name="report")
+@click.option("--workspace", type=click.Path(path_type=str), default="/home/kali/workspace", show_default=True)
+@click.option("--crash-report", "crash_report", type=click.Path(exists=True, path_type=str), required=True)
+@click.option("--proof-report", "proof_report", type=click.Path(exists=True, path_type=str), required=True)
+@click.option("--output", "output", type=click.Path(path_type=str), default=None)
+@click.option("--summary-path", "summary_path", type=click.Path(exists=False, path_type=str), default=None)
+def report_cmd(workspace: str, crash_report: str, proof_report: str, output: str, summary_path: str | None) -> None:
+    """Write a Chinese exploit-chain summary report."""
+    result = write_exploit_chain_report(
+        output=output,
+        crash_report=crash_report,
+        proof_report=proof_report,
+        workspace=workspace,
+        summary_path=summary_path,
+    )
+    click.echo(result)
+
+
 main.add_command(init_cmd)
 main.add_command(triage_cmd)
 main.add_command(repro_cmd)
 main.add_command(protocol_template_cmd)
 main.add_command(primitive_cmd)
+main.add_command(report_cmd)
+main.add_command(loop_cmd)
+main.add_command(asset_cmd)
 
 
 def json_dump(value: object) -> str:

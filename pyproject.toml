@@ -11,9 +11,12 @@ dependencies = [
 binCain = "bincain.cli:main"
 binCain-init = "bincain.cli:init_cmd"
 binCain-triage = "bincain.cli:triage_cmd"
+binCain-report = "bincain.cli:report_cmd"
 binCain-repro = "bincain.cli:repro_cmd"
-binCain-protocol-template = "bincain.cli:protocol_template_cmd"
 binCain-primitive = "bincain.cli:primitive_cmd"
+binCain-protocol-template = "bincain.cli:protocol_template_cmd"
+binCain-loop = "bincain.iot_cli:loop_cmd"
+binCain-asset = "bincain.iot_cli:asset_cmd"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -22,6 +25,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+"bincain.prompts.iot_loop" = ["*.md"]
+
 [tool.pytest.ini_options]
 addopts = "-p no:cacheprovider"
+pythonpath = ["src"]
 testpaths = ["tests"]

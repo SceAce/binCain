@@ -1,0 +1,21 @@
+runtime:
+  prompt_group: "pwn"
+
+container:
+  image: bincain-worker:dev
+  completed_action: stop
+
+tasks:
+  bootstrap:
+    timeout: 900
+    conclude_timeout: 120
+  reason:
+    timeout: 300
+  explore:
+    timeout: 1800
+    conclude_timeout: 180
+
+workers:
+  - type: claudecode
+    task_types: [bootstrap, reason, explore]
+    env: {}
